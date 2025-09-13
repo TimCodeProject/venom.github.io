@@ -3,53 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VideoConf - Video Conference App</title>
-    <!-- Tailwind CSS -->
+    <title>Secure Video Conference</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Agora SDK -->
-    <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.2.js"></script>
-    <!-- Heroicons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.2.js"></script>
     <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
         .video-container {
             transition: all 0.3s ease;
+            border-radius: 12px;
+            overflow: hidden;
+            background: linear-gradient(45deg, #1f2937, #374151);
         }
         .video-container:hover {
             transform: scale(1.02);
         }
-        .participant-video {
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        }
         .controls-btn {
             transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
         .controls-btn:hover {
             transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
         }
-        .controls-btn:active {
-            transform: translateY(0);
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        .speaking-border {
+            border-color: #10b981 !important;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
         }
     </style>
 </head>
-<body class="bg-gray-900 text-white min-h-screen">
+<body class="gradient-bg text-white">
     <div class="container mx-auto px-4 py-8">
         <!-- Header -->
         <header class="text-center mb-8">
-            <h1 class="text-3xl md:text-4xl font-bold text-blue-400 mb-2">
-                <i class="fas fa-video mr-3"></i>VideoConf
-            </h1>
-            <p class="text-gray-400">Simple and secure video conferencing</p>
+            <div class="w-20 h-20 bg-white bg-opacity-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-video text-2xl"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-blue-400 mb-2">Secure Video Conference</h1>
+            <p class="text-gray-300">Safe and encrypted video meetings</p>
         </header>
 
         <!-- Join Form -->
-        <div id="join-section" class="max-w-md mx-auto bg-gray-800 rounded-xl p-6 shadow-2xl mb-8">
+        <div id="join-section" class="glass-effect rounded-2xl p-8 max-w-md mx-auto">
             <div class="text-center mb-6">
-                <div class="w-20 h-20 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i class="fas fa-video text-2xl"></i>
-                </div>
-                <h2 class="text-xl font-semibold">Join a Meeting</h2>
+                <h2 class="text-xl font-semibold">Join Secure Meeting</h2>
+                <p class="text-gray-300 text-sm">Enter channel name to start</p>
             </div>
             
             <div class="space-y-4">
@@ -57,251 +71,278 @@
                     <label class="block text-sm font-medium text-gray-300 mb-2">Channel Name</label>
                     <input 
                         type="text" 
-                        id="channel-name" 
-                        placeholder="Enter meeting ID" 
-                        class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                        id="channel-name"
+                        placeholder="e.g., team-meeting-123" 
+                        class="w-full px-4 py-3 bg-white bg-opacity-15 rounded-lg border border-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                        value="test-channel"
                     >
-                </div>
-                
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Camera</label>
-                        <select id="camera-select" class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-                            <option value="">Loading cameras...</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Microphone</label>
-                        <select id="mic-select" class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-                            <option value="">Loading mics...</option>
-                        </select>
-                    </div>
                 </div>
 
                 <button 
                     onclick="joinCall()" 
-                    class="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105"
+                    id="join-btn"
+                    class="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold transition-all duration-200"
                 >
-                    <i class="fas fa-sign-in-alt mr-2"></i>Join Meeting
+                    <i class="fas fa-shield-alt mr-2"></i>Join Secure Meeting
                 </button>
             </div>
+
+            <div id="status" class="mt-4 text-sm hidden"></div>
         </div>
 
-        <!-- Video Conference Section -->
+        <!-- Conference Section -->
         <div id="conference-section" class="hidden">
+            <!-- Meeting Info -->
+            <div class="glass-effect rounded-lg p-4 mb-6 text-center">
+                <h2 id="meeting-title" class="text-xl font-semibold">Meeting: <span id="current-channel"></span></h2>
+                <p id="participant-count" class="text-gray-300">1 participant</p>
+            </div>
+
             <!-- Video Grid -->
-            <div id="video-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
-                <!-- Local video will be added here -->
+            <div id="video-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-20">
+                <!-- Videos will be added here -->
             </div>
 
             <!-- Controls -->
-            <div class="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-800 bg-opacity-90 rounded-2xl px-6 py-4 shadow-2xl">
-                <div class="flex items-center space-x-4">
+            <div class="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-800 bg-opacity-95 rounded-2xl px-8 py-4 shadow-2xl">
+                <div class="flex items-center justify-center space-x-6">
                     <button 
-                        id="mic-toggle" 
+                        id="mic-btn"
                         onclick="toggleMic()" 
-                        class="controls-btn w-12 h-12 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center transition-all"
+                        class="controls-btn w-14 h-14 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center"
+                        title="Mute/Unmute"
                     >
                         <i class="fas fa-microphone"></i>
                     </button>
 
                     <button 
-                        id="camera-toggle" 
+                        id="camera-btn"
                         onclick="toggleCamera()" 
-                        class="controls-btn w-12 h-12 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center transition-all"
+                        class="controls-btn w-14 h-14 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center"
+                        title="Start/Stop Video"
                     >
                         <i class="fas fa-video"></i>
                     </button>
 
                     <button 
-                        onclick="switchCamera()" 
-                        class="controls-btn w-12 h-12 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center transition-all"
-                        title="Switch Camera"
-                    >
-                        <i class="fas fa-sync-alt"></i>
-                    </button>
-
-                    <button 
                         onclick="leaveCall()" 
-                        class="controls-btn w-12 h-12 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center transition-all"
+                        class="controls-btn w-14 h-14 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center"
+                        title="Leave Call"
                     >
                         <i class="fas fa-phone-slash"></i>
                     </button>
                 </div>
             </div>
-
-            <!-- Participant Count -->
-            <div class="fixed top-4 right-4 bg-gray-800 bg-opacity-90 rounded-lg px-4 py-2">
-                <span id="participant-count" class="text-sm font-semibold">
-                    <i class="fas fa-users mr-2"></i><span>1 participant</span>
-                </span>
-            </div>
         </div>
 
-        <!-- Status Messages -->
-        <div id="status-message" class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white px-6 py-3 rounded-lg shadow-lg hidden transition-opacity">
-            <span id="status-text"></span>
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+            <div class="glass-effect rounded-2xl p-8 text-center">
+                <div class="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p id="loading-text" class="text-white">Connecting securely...</p>
+            </div>
         </div>
     </div>
 
     <script>
-        // Agora Configuration
-        const APP_ID = "c770c1ce64ed4cf78810a212b0634c0c"; // REPLACE WITH YOUR AGORA APP ID
-        const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-        
+        // Global variables
         let localTracks = {
             audioTrack: null,
             videoTrack: null
         };
         let remoteUsers = {};
-        let isAudioMuted = false;
-        let isVideoMuted = false;
-        let availableCameras = [];
-        let currentCameraId = '';
-
-        // Initialize device lists
-        async function initializeDevices() {
-            try {
-                // Get available devices
-                const devices = await AgoraRTC.getDevices();
-                const cameras = devices.filter(device => device.kind === 'videoinput');
-                const mics = devices.filter(device => device.kind === 'audioinput');
-
-                // Populate camera select
-                const cameraSelect = document.getElementById('camera-select');
-                cameraSelect.innerHTML = '';
-                cameras.forEach(camera => {
-                    const option = document.createElement('option');
-                    option.value = camera.deviceId;
-                    option.text = camera.label || `Camera ${cameraSelect.length + 1}`;
-                    cameraSelect.appendChild(option);
-                });
-                availableCameras = cameras;
-
-                // Populate microphone select
-                const micSelect = document.getElementById('mic-select');
-                micSelect.innerHTML = '';
-                mics.forEach(mic => {
-                    const option = document.createElement('option');
-                    option.value = mic.deviceId;
-                    option.text = mic.label || `Microphone ${micSelect.length + 1}`;
-                    micSelect.appendChild(option);
-                });
-
-            } catch (error) {
-                console.error('Error getting devices:', error);
-                showStatus('Error accessing devices. Please check permissions.', 'error');
-            }
-        }
+        let client = null;
+        let currentChannel = '';
 
         // Show status message
         function showStatus(message, type = 'info') {
-            const statusEl = document.getElementById('status-message');
-            const statusText = document.getElementById('status-text');
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = message;
+            statusElement.className = 'mt-4 text-sm';
             
-            statusText.textContent = message;
-            statusEl.className = `fixed top-4 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg transition-opacity ${
-                type === 'error' ? 'bg-red-500' : 'bg-blue-500'
-            } text-white`;
+            const colors = {
+                error: 'text-red-300',
+                loading: 'text-yellow-300',
+                success: 'text-green-300',
+                info: 'text-blue-300'
+            };
             
-            statusEl.classList.remove('hidden');
-            setTimeout(() => {
-                statusEl.classList.add('hidden');
-            }, 3000);
+            statusElement.classList.add(colors[type]);
+            statusElement.classList.remove('hidden');
         }
 
-        // Update participant count
-        function updateParticipantCount() {
-            const count = Object.keys(remoteUsers).length + 1; // +1 for local user
-            document.getElementById('participant-count').innerHTML = 
-                `<i class="fas fa-users mr-2"></i>${count} participant${count !== 1 ? 's' : ''}`;
+        // Show loading overlay
+        function showLoading(message = 'Loading...') {
+            const overlay = document.getElementById('loading-overlay');
+            const text = document.getElementById('loading-text');
+            text.textContent = message;
+            overlay.classList.remove('hidden');
         }
 
-        // Create video element for participant
+        // Hide loading overlay
+        function hideLoading() {
+            document.getElementById('loading-overlay').classList.add('hidden');
+        }
+
+        // Create video element
         function createVideoElement(uid, isLocal = false) {
             const container = document.createElement('div');
-            container.className = 'video-container participant-video bg-black relative';
+            container.className = 'video-container relative';
             container.id = `player-${uid}`;
-
-            const video = document.createElement('div');
-            video.className = 'w-full h-48 md:h-64';
-
+            
+            const videoElement = document.createElement('div');
+            videoElement.className = 'w-full h-48 md:h-64';
+            
             const info = document.createElement('div');
             info.className = 'absolute bottom-2 left-2 bg-black bg-opacity-50 px-3 py-1 rounded text-sm';
             info.innerHTML = `<i class="fas fa-user mr-2"></i>${isLocal ? 'You' : 'User ' + uid}`;
-
+            
             if (isLocal) {
                 const badge = document.createElement('div');
                 badge.className = 'absolute top-2 right-2 bg-blue-500 px-2 py-1 rounded text-xs';
                 badge.textContent = 'You';
                 container.appendChild(badge);
             }
-
-            container.appendChild(video);
+            
+            container.appendChild(videoElement);
             container.appendChild(info);
             document.getElementById('video-grid').appendChild(container);
-
-            return video;
+            
+            return videoElement;
         }
 
-        // Join the call
+        // Update participant count
+        function updateParticipantCount() {
+            const count = Object.keys(remoteUsers).length + 1;
+            document.getElementById('participant-count').textContent = 
+                `${count} participant${count !== 1 ? 's' : ''}`;
+        }
+
+        // Join conference call
         async function joinCall() {
             const channelName = document.getElementById('channel-name').value.trim();
+            const joinBtn = document.getElementById('join-btn');
+            
             if (!channelName) {
                 showStatus('Please enter a channel name', 'error');
                 return;
             }
 
             try {
-                showStatus('Joining meeting...');
+                showLoading('Generating secure token...');
+                joinBtn.disabled = true;
+                
+                // Generate token from backend
+                const response = await fetch('/api/generate-token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        channelName: channelName,
+                        uid: Math.floor(Math.random() * 100000)
+                    })
+                });
 
-                // Initialize devices if not already done
-                if (availableCameras.length === 0) {
-                    await initializeDevices();
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to generate token');
                 }
 
-                // Get selected devices
-                const cameraId = document.getElementById('camera-select').value;
-                const micId = document.getElementById('mic-select').value;
+                showLoading('Initializing secure connection...');
+                
+                // Initialize Agora client
+                client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
 
-                // Join the channel
-                await client.join(APP_ID, channelName, null, null);
+                // Set up event listeners
+                setupAgoraEventListeners();
 
-                // Create local tracks with selected devices
-                localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack({
-                    microphoneId: micId
-                });
-                localTracks.videoTrack = await AgoraRTC.createCameraVideoTrack({
-                    cameraId: cameraId || undefined
-                });
+                // Join channel with token
+                await client.join(data.appId, data.channel, data.token, data.uid);
 
-                currentCameraId = cameraId;
-
-                // Publish local tracks
+                showLoading('Starting your media...');
+                
+                // Create and publish local tracks
+                localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+                localTracks.videoTrack = await AgoraRTC.createCameraVideoTrack();
+                
                 await client.publish([localTracks.audioTrack, localTracks.videoTrack]);
 
-                // Create and play local video
+                // Show local video
                 const localPlayer = createVideoElement('local', true);
                 localTracks.videoTrack.play(localPlayer);
 
-                // Switch UI to conference view
+                // Update UI
+                currentChannel = channelName;
+                document.getElementById('current-channel').textContent = channelName;
                 document.getElementById('join-section').classList.add('hidden');
                 document.getElementById('conference-section').classList.remove('hidden');
-
-                showStatus('Successfully joined meeting!');
+                
                 updateParticipantCount();
-
+                showStatus('Successfully joined secure meeting!', 'success');
+                
             } catch (error) {
                 console.error('Error joining call:', error);
-                showStatus('Failed to join meeting: ' + error.message, 'error');
+                showStatus('Failed to join: ' + error.message, 'error');
+            } finally {
+                hideLoading();
+                joinBtn.disabled = false;
             }
         }
 
-        // Leave the call
+        // Set up Agora event listeners
+        function setupAgoraEventListeners() {
+            if (!client) return;
+
+            client.on("user-published", async (user, mediaType) => {
+                try {
+                    await client.subscribe(user, mediaType);
+                    
+                    if (mediaType === "video") {
+                        const remotePlayer = createVideoElement(user.uid);
+                        user.videoTrack.play(remotePlayer);
+                    }
+                    if (mediaType === "audio") {
+                        user.audioTrack.play();
+                    }
+
+                    remoteUsers[user.uid] = user;
+                    updateParticipantCount();
+                    
+                } catch (error) {
+                    console.error('Error handling user published:', error);
+                }
+            });
+
+            client.on("user-unpublished", (user) => {
+                const playerContainer = document.getElementById(`player-${user.uid}`);
+                if (playerContainer) {
+                    playerContainer.remove();
+                }
+                delete remoteUsers[user.uid];
+                updateParticipantCount();
+            });
+
+            client.on("user-left", (user) => {
+                const playerContainer = document.getElementById(`player-${user.uid}`);
+                if (playerContainer) {
+                    playerContainer.remove();
+                }
+                delete remoteUsers[user.uid];
+                updateParticipantCount();
+                showStatus('User left the meeting', 'info');
+            });
+        }
+
+        // Leave conference call
         async function leaveCall() {
             try {
-                // Leave the channel
-                await client.leave();
+                showLoading('Leaving meeting...');
+                
+                if (client) {
+                    await client.leave();
+                }
                 
                 // Close local tracks
                 if (localTracks.audioTrack) {
@@ -314,39 +355,42 @@
                 // Reset state
                 localTracks = { audioTrack: null, videoTrack: null };
                 remoteUsers = {};
+                client = null;
 
-                // Clear video grid
+                // Reset UI
                 document.getElementById('video-grid').innerHTML = '';
-
-                // Switch back to join view
                 document.getElementById('conference-section').classList.add('hidden');
                 document.getElementById('join-section').classList.remove('hidden');
-
-                showStatus('Left the meeting');
-
+                
+                showStatus('Left the meeting securely', 'info');
+                
             } catch (error) {
                 console.error('Error leaving call:', error);
                 showStatus('Error leaving meeting', 'error');
+            } finally {
+                hideLoading();
             }
         }
 
         // Toggle microphone
         async function toggleMic() {
             if (!localTracks.audioTrack) return;
-
+            
             try {
-                if (isAudioMuted) {
-                    await localTracks.audioTrack.setEnabled(true);
-                    document.getElementById('mic-toggle').classList.remove('bg-red-500');
-                    document.getElementById('mic-toggle').classList.add('bg-green-500');
-                    document.getElementById('mic-toggle').innerHTML = '<i class="fas fa-microphone"></i>';
+                const enabled = !localTracks.audioTrack.enabled;
+                await localTracks.audioTrack.setEnabled(enabled);
+                
+                const btn = document.getElementById('mic-btn');
+                if (enabled) {
+                    btn.classList.remove('bg-red-500');
+                    btn.classList.add('bg-green-500');
+                    btn.innerHTML = '<i class="fas fa-microphone"></i>';
                 } else {
-                    await localTracks.audioTrack.setEnabled(false);
-                    document.getElementById('mic-toggle').classList.remove('bg-green-500');
-                    document.getElementById('mic-toggle').classList.add('bg-red-500');
-                    document.getElementById('mic-toggle').innerHTML = '<i class="fas fa-microphone-slash"></i>';
+                    btn.classList.remove('bg-green-500');
+                    btn.classList.add('bg-red-500');
+                    btn.innerHTML = '<i class="fas fa-microphone-slash"></i>';
                 }
-                isAudioMuted = !isAudioMuted;
+                
             } catch (error) {
                 console.error('Error toggling microphone:', error);
             }
@@ -355,101 +399,46 @@
         // Toggle camera
         async function toggleCamera() {
             if (!localTracks.videoTrack) return;
-
+            
             try {
-                if (isVideoMuted) {
-                    await localTracks.videoTrack.setEnabled(true);
-                    document.getElementById('camera-toggle').classList.remove('bg-red-500');
-                    document.getElementById('camera-toggle').classList.add('bg-green-500');
-                    document.getElementById('camera-toggle').innerHTML = '<i class="fas fa-video"></i>';
+                const enabled = !localTracks.videoTrack.enabled;
+                await localTracks.videoTrack.setEnabled(enabled);
+                
+                const btn = document.getElementById('camera-btn');
+                if (enabled) {
+                    btn.classList.remove('bg-red-500');
+                    btn.classList.add('bg-green-500');
+                    btn.innerHTML = '<i class="fas fa-video"></i>';
                 } else {
-                    await localTracks.videoTrack.setEnabled(false);
-                    document.getElementById('camera-toggle').classList.remove('bg-green-500');
-                    document.getElementById('camera-toggle').classList.add('bg-red-500');
-                    document.getElementById('camera-toggle').innerHTML = '<i class="fas fa-video-slash"></i>';
+                    btn.classList.remove('bg-green-500');
+                    btn.classList.add('bg-red-500');
+                    btn.innerHTML = '<i class="fas fa-video-slash"></i>';
                 }
-                isVideoMuted = !isVideoMuted;
+                
             } catch (error) {
                 console.error('Error toggling camera:', error);
             }
         }
 
-        // Switch camera
-        async function switchCamera() {
-            if (!localTracks.videoTrack || availableCameras.length < 2) return;
-
+        // Check server health on load
+        async function checkServerHealth() {
             try {
-                showStatus('Switching camera...');
+                const response = await fetch('/api/health');
+                const data = await response.json();
                 
-                // Get current camera index and find next camera
-                const currentIndex = availableCameras.findIndex(cam => cam.deviceId === currentCameraId);
-                const nextIndex = (currentIndex + 1) % availableCameras.length;
-                const nextCamera = availableCameras[nextIndex];
-                
-                // Create new video track with the next camera
-                const newVideoTrack = await AgoraRTC.createCameraVideoTrack({
-                    cameraId: nextCamera.deviceId
-                });
-
-                // Replace the existing video track
-                await client.unpublish([localTracks.videoTrack]);
-                localTracks.videoTrack.close();
-                
-                localTracks.videoTrack = newVideoTrack;
-                await client.publish([localTracks.videoTrack]);
-                
-                // Update the local video player
-                const localPlayer = document.querySelector('#player-local > div');
-                if (localPlayer) {
-                    localTracks.videoTrack.play(localPlayer);
+                if (!data.agora_configured) {
+                    showStatus('Warning: Server not fully configured', 'error');
                 }
-                
-                currentCameraId = nextCamera.deviceId;
-                showStatus('Camera switched');
-
             } catch (error) {
-                console.error('Error switching camera:', error);
-                showStatus('Error switching camera', 'error');
+                console.log('Server health check:', error.message);
             }
         }
 
-        // Event handlers for remote users
-        client.on("user-published", async (user, mediaType) => {
-            await client.subscribe(user, mediaType);
-            
-            if (mediaType === "video") {
-                const remotePlayer = createVideoElement(user.uid);
-                user.videoTrack.play(remotePlayer);
-            }
-            if (mediaType === "audio") {
-                user.audioTrack.play();
-            }
-
-            remoteUsers[user.uid] = user;
-            updateParticipantCount();
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Video conference app loaded');
+            checkServerHealth();
         });
-
-        client.on("user-unpublished", (user) => {
-            const playerContainer = document.getElementById(`player-${user.uid}`);
-            if (playerContainer) {
-                playerContainer.remove();
-            }
-            delete remoteUsers[user.uid];
-            updateParticipantCount();
-        });
-
-        client.on("user-left", (user) => {
-            const playerContainer = document.getElementById(`player-${user.uid}`);
-            if (playerContainer) {
-                playerContainer.remove();
-            }
-            delete remoteUsers[user.uid];
-            updateParticipantCount();
-            showStatus('User left the meeting');
-        });
-
-        // Initialize devices when page loads
-        document.addEventListener('DOMContentLoaded', initializeDevices);
     </script>
 </body>
 </html>
