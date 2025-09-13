@@ -13,8 +13,8 @@ app = Flask(__name__)
 CORS(app)
 
 # Configuration from environment variables
-AGORA_APP_ID = 'c770c1ce64ed4cf78810a212b0634c0c'
-AGORA_APP_CERTIFICATE = '1b1220744ac644ce898114a2541ad45b'
+AGORA_APP_ID = os.environ.get('AGORA_APP_ID')
+AGORA_APP_CERTIFICATE = os.environ.get('AGORA_APP_CERTIFICATE')
 
 # Validate configuration
 if not AGORA_APP_ID or not AGORA_APP_CERTIFICATE:
