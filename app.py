@@ -1,9 +1,13 @@
-from flask import Flask, render_template, jsonify, request, send_from_directory
+from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
 from agora_token_builder import RtcTokenBuilder
 import os
 from datetime import datetime
 import logging
+from dotenv import load_dotenv  # Добавьте эту строку
+
+# Загрузите переменные окружения из .env файла
+load_dotenv()  # Добавьте эту строку
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -19,6 +23,7 @@ AGORA_APP_CERTIFICATE = os.environ.get('AGORA_APP_CERTIFICATE')
 # Validate configuration
 if not AGORA_APP_ID or not AGORA_APP_CERTIFICATE:
     logger.warning("Agora App ID or Certificate not set. Please set AGORA_APP_ID and AGORA_APP_CERTIFICATE environment variables.")
+    logger.warning("Create a .env file with your Agora credentials")
 
 @app.route('/')
 def home():
