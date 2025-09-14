@@ -1,5 +1,5 @@
 flask==2.3.3
-agora-rtc-sdk==4.19.2
+agora-rtc-sdk
 python-dotenv==1.0.0
 gunicorn==21.2.0
 flask-socketio==5.3.6
