@@ -1,108 +1,164 @@
-from flask import Flask, render_template, jsonify, request
-from flask_cors import CORS
-from agora_token_builder import RtcTokenBuilder
 import os
-from datetime import datetime
-import logging
-from dotenv import load_dotenv  # Добавьте эту строку
+import json
+from flask import Flask, render_template, session, request, jsonify
+from flask_socketio import SocketIO, emit
+from dotenv import load_dotenv
+import random
+import string
+from datetime import datetime, timedelta
 
-# Загрузите переменные окружения из .env файла
-load_dotenv()  # Добавьте эту строку
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key')
+socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Configuration from environment variables
-AGORA_APP_ID = os.environ.get('AGORA_APP_ID')
-AGORA_APP_CERTIFICATE = os.environ.get('AGORA_APP_CERTIFICATE')
+# Agora конфигурация
+AGORA_APP_ID = os.getenv('AGORA_APP_ID')
+AGORA_APP_CERTIFICATE = os.getenv('AGORA_APP_CERTIFICATE')
 
-# Validate configuration
-if not AGORA_APP_ID or not AGORA_APP_CERTIFICATE:
-    logger.warning("Agora App ID or Certificate not set. Please set AGORA_APP_ID and AGORA_APP_CERTIFICATE environment variables.")
-    logger.warning("Create a .env file with your Agora credentials")
+# Хранение данных сессий
+active_sessions = {}
+
+def generate_channel_name():
+    """Генерация уникального имени канала"""
+    return ''.join(random.choices(string.ascii_lowercase + string.digits, k=12))
+
+def generate_rtc_token(channel_name, uid, role=1):
+    """Генерация токена для Agora RTC"""
+    try:
+        from agora_access_token import AccessToken
+        
+        if not AGORA_APP_ID or not AGORA_APP_CERTIFICATE:
+            return None
+            
+        expiration_time = 3600  # 1 час
+        current_time = datetime.utcnow()
+        privilege_expired_ts = (current_time + timedelta(seconds=expiration_time)).timestamp()
+        
+        token = AccessToken(AGORA_APP_ID, AGORA_APP_CERTIFICATE, channel_name, uid)
+        token.add_privilege(AccessToken.Privileges.kJoinChannel, privilege_expired_ts)
+        
+        if role == 1:  # Publisher
+            token.add_privilege(AccessToken.Privileges.kPublishAudioStream, privilege_expired_ts)
+            token.add_privilege(AccessToken.Privileges.kPublishVideoStream, privilege_expired_ts)
+            token.add_privilege(AccessToken.Privileges.kPublishDataStream, privilege_expired_ts)
+        
+        return token.build()
+    except:
+        # Fallback для случаев когда agora_access_token не установлен
+        return "dummy_token_for_dev"
 
 @app.route('/')
-def home():
-    return render_template('index.html')
+def index():
+    """Главная страница"""
+    if 'user_id' not in session:
+        session['user_id'] = random.randint(100000, 999999)
+    if 'username' not in session:
+        session['username'] = f'User_{random.randint(1000, 9999)}'
+    
+    channel_name = request.args.get('channel')
+    if not channel_name:
+        channel_name = generate_channel_name()
+        return render_template('index.html', 
+                             channel_name=channel_name,
+                             agora_app_id=AGORA_APP_ID,
+                             user_id=session['user_id'],
+                             username=session['username'])
+    
+    return render_template('index.html',
+                         channel_name=channel_name,
+                         agora_app_id=AGORA_APP_ID,
+                         user_id=session['user_id'],
+                         username=session['username'])
 
-@app.route('/favicon.ico')
-def favicon():
-    return '', 204  # No content for favicon
+@app.route('/set_username', methods=['POST'])
+def set_username():
+    """Установка имени пользователя"""
+    username = request.json.get('username')
+    if username:
+        session['username'] = username
+        return jsonify({'success': True, 'username': username})
+    return jsonify({'success': False})
 
-@app.route('/api/health')
-def health_check():
-    return jsonify({'status': 'healthy', 'agora_configured': bool(AGORA_APP_ID and AGORA_APP_CERTIFICATE)})
-
-@app.route('/api/generate-token', methods=['POST'])
+@app.route('/token', methods=['POST'])
 def generate_token():
+    """Генерация токена для клиента"""
     try:
-        if not AGORA_APP_ID or not AGORA_APP_CERTIFICATE:
-            return jsonify({'error': 'Server not configured properly'}), 500
-
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'No JSON data provided'}), 400
-
-        channel_name = data.get('channelName')
-        uid = data.get('uid', 0)
-
-        if not channel_name:
-            return jsonify({'error': 'Channel name is required'}), 400
-
-        # Validate channel name (basic sanitization)
-        if not isinstance(channel_name, str) or len(channel_name) > 64:
-            return jsonify({'error': 'Invalid channel name'}), 400
-
-        # Calculate expiration time (1 hour from now)
-        expiration_time = 3600
-        current_timestamp = int(datetime.now().timestamp())
-        expire_timestamp = current_timestamp + expiration_time
-
-        # Build token
-        token = RtcTokenBuilder.buildTokenWithUid(
-            AGORA_APP_ID,
-            AGORA_APP_CERTIFICATE,
-            channel_name,
-            uid,
-            role=1,  # Publisher role
-            privilege_expire_ts=expire_timestamp
-        )
-
-        logger.info(f"Token generated for channel: {channel_name}, uid: {uid}")
-
-        return jsonify({
-            'token': token,
-            'appId': AGORA_APP_ID,
-            'channel': channel_name,
-            'uid': uid,
-            'expires': expire_timestamp
-        })
-
+        data = request.json
+        channel_name = data['channel']
+        user_id = data['uid']
+        
+        token = generate_rtc_token(channel_name, user_id)
+        
+        if token:
+            return jsonify({
+                'token': token,
+                'appId': AGORA_APP_ID,
+                'channel': channel_name,
+                'uid': user_id
+            })
+        else:
+            return jsonify({'error': 'Failed to generate token'}), 500
+            
     except Exception as e:
-        logger.error(f"Error generating token: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
+        return jsonify({'error': str(e)}), 400
 
-@app.errorhandler(404)
-def not_found(e):
-    # For SPA routing, return index.html for all undefined routes
-    if request.path.startswith('/api/'):
-        return jsonify({'error': 'Not found'}), 404
-    return render_template('index.html')
+@socketio.on('connect')
+def handle_connect():
+    """Обработчик подключения WebSocket"""
+    print('Client connected')
 
-@app.errorhandler(500)
-def internal_error(e):
-    logger.error(f"Internal server error: {str(e)}")
-    return jsonify({'error': 'Internal server error'}), 500
+@socketio.on('disconnect')
+def handle_disconnect():
+    """Обработчик отключения WebSocket"""
+    print('Client disconnected')
+
+@socketio.on('join_chat')
+def handle_join_chat(data):
+    """Пользователь присоединяется к чату"""
+    session['room'] = data['channel']
+    session['username'] = data['username']
+    emit('user_joined', {
+        'username': data['username'],
+        'message': 'присоединился к чату',
+        'timestamp': datetime.now().isoformat()
+    }, room=data['channel'], broadcast=True)
+
+@socketio.on('send_message')
+def handle_send_message(data):
+    """Отправка сообщения в чат"""
+    emit('new_message', {
+        'username': session['username'],
+        'message': data['message'],
+        'timestamp': datetime.now().isoformat(),
+        'userId': session['user_id']
+    }, room=session['room'], broadcast=True)
+
+@socketio.on('send_reaction')
+def handle_send_reaction(data):
+    """Отправка реакции"""
+    emit('new_reaction', {
+        'username': session['username'],
+        'reaction': data['reaction'],
+        'timestamp': datetime.now().isoformat()
+    }, room=session['room'], broadcast=True)
+
+@socketio.on('user_activity')
+def handle_user_activity(data):
+    """Обработка активности пользователя"""
+    emit('user_activity_update', {
+        'userId': session['user_id'],
+        'username': session['username'],
+        'activity': data['activity'],
+        'timestamp': datetime.now().isoformat()
+    }, room=session['room'], broadcast=True)
+
+@app.route('/health')
+def health_check():
+    """Health check для Render"""
+    return jsonify({'status': 'healthy'})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    debug = os.environ.get('DEBUG', 'False').lower() == 'true'
-    
-    logger.info(f"Starting server on port {port}")
-    logger.info(f"Agora configured: {bool(AGORA_APP_ID and AGORA_APP_CERTIFICATE)}")
-    
-    app.run(debug=debug, host='0.0.0.0', port=port)
+    socketio.run(app, host='0.0.0.0', port=port, debug=False)
