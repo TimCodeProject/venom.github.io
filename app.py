@@ -10,12 +10,13 @@ import base64
 import hmac
 import hashlib
 import struct
+import time
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key')
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent')
 
 # Agora конфигурация
 AGORA_APP_ID = os.getenv('AGORA_APP_ID', 'c770c1ce64ed4cf78810a212b0634c0c')
