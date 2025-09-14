@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: video-conference-pro
+    env: python
+    plan: free
+    buildCommand: |
+      pip install -r requirements.txt
+      pip install eventlet
+    startCommand: gunicorn -k eventlet -w 1 app:app
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: AGORA_APP_ID
+        value: c770c1ce64ed4cf78810a212b0634c0c
+      - key: AGORA_APP_CERTIFICATE
+        value: 1b1220744ac644ce898114a2541ad45b
+    healthCheckPath: /health
+    autoDeploy: true
+
+  # Опционально: база данных для хранения сессий (если нужно)
+  - type: redis
+    name: video-conference-redis
+    plan: free
+    ipAllowList: []
