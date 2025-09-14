@@ -3,10 +3,8 @@ services:
     name: video-conference-pro
     env: python
     plan: free
-    buildCommand: |
-      pip install -r requirements.txt
-      pip install eventlet
-    startCommand: gunicorn -k eventlet -w 1 app:app
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn -k gevent -w 1 app:app
     envVars:
       - key: SECRET_KEY
         generateValue: true
@@ -16,9 +14,3 @@ services:
         value: 1b1220744ac644ce898114a2541ad45b
     healthCheckPath: /health
     autoDeploy: true
-
-  # Опционально: база данных для хранения сессий (если нужно)
-  - type: redis
-    name: video-conference-redis
-    plan: free
-    ipAllowList: []
