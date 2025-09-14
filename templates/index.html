@@ -1,444 +1,821 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure Video Conference</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.2.js"></script>
+    <title>Video Conference Pro</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        .gradient-bg {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
+        :root {
+            --primary-color: #4a6cf7;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --info-color: #17a2b8;
         }
-        .glass-effect {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding-bottom: 80px;
         }
+
         .video-container {
-            transition: all 0.3s ease;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        .video-player {
+            width: 100%;
+            height: 200px;
+            background-color: #000;
             border-radius: 12px;
-            overflow: hidden;
-            background: linear-gradient(45deg, #1f2937, #374151);
+            position: relative;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        .video-container:hover {
-            transform: scale(1.02);
+
+        .user-info {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 12px;
         }
-        .controls-btn {
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: white;
+            padding: 15px;
+            border-radius: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
         }
-        .controls-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+
+        .chat-container {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 15px;
+            background: white;
         }
-        .pulse-animation {
-            animation: pulse 2s infinite;
+
+        .message {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 15px;
+            background: #f1f3f5;
         }
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.7; }
-            100% { opacity: 1; }
+
+        .message.own {
+            background: var(--primary-color);
+            color: white;
+            margin-left: 20%;
         }
-        .speaking-border {
-            border-color: #10b981 !important;
-            box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+
+        .message.system {
+            background: var(--secondary-color);
+            color: white;
+            text-align: center;
+            font-style: italic;
+        }
+
+        .reactions {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .reaction-btn {
+            font-size: 1.2em;
+            cursor: pointer;
+            transition: transform 0.2s;
+            padding: 5px;
+        }
+
+        .reaction-btn:hover {
+            transform: scale(1.2);
+        }
+
+        .modal-content {
+            border-radius: 15px;
+        }
+
+        .screen-share-container {
+            grid-column: 1 / -1;
+            max-height: 400px;
+        }
+
+        .active-speaker {
+            border: 3px solid var(--primary-color);
+        }
+
+        .typing-indicator {
+            font-style: italic;
+            color: var(--secondary-color);
+            font-size: 0.9em;
+            height: 20px;
+        }
+
+        .btn-control {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            to { opacity: 0; transform: translate(-50%, -50%) scale(1.5); }
+        }
+
+        .reaction-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 3em;
+            z-index: 2000;
+            animation: fadeOut 2s forwards;
+            pointer-events: none;
         }
     </style>
 </head>
-<body class="gradient-bg text-white">
-    <div class="container mx-auto px-4 py-8">
-        <!-- Header -->
-        <header class="text-center mb-8">
-            <div class="w-20 h-20 bg-white bg-opacity-20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <i class="fas fa-video text-2xl"></i>
-            </div>
-            <h1 class="text-3xl font-bold text-blue-400 mb-2">Secure Video Conference</h1>
-            <p class="text-gray-300">Safe and encrypted video meetings</p>
-        </header>
-
-        <!-- Join Form -->
-        <div id="join-section" class="glass-effect rounded-2xl p-8 max-w-md mx-auto">
-            <div class="text-center mb-6">
-                <h2 class="text-xl font-semibold">Join Secure Meeting</h2>
-                <p class="text-gray-300 text-sm">Enter channel name to start</p>
-            </div>
-            
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-300 mb-2">Channel Name</label>
-                    <input 
-                        type="text" 
-                        id="channel-name"
-                        placeholder="e.g., team-meeting-123" 
-                        class="w-full px-4 py-3 bg-white bg-opacity-15 rounded-lg border border-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
-                        value="test-channel"
-                    >
+<body>
+    <!-- Модальное окно для имени пользователя -->
+    <div class="modal fade" id="usernameModal" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Введите ваше имя</h5>
                 </div>
-
-                <button 
-                    onclick="joinCall()" 
-                    id="join-btn"
-                    class="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold transition-all duration-200"
-                >
-                    <i class="fas fa-shield-alt mr-2"></i>Join Secure Meeting
-                </button>
-            </div>
-
-            <div id="status" class="mt-4 text-sm hidden"></div>
-        </div>
-
-        <!-- Conference Section -->
-        <div id="conference-section" class="hidden">
-            <!-- Meeting Info -->
-            <div class="glass-effect rounded-lg p-4 mb-6 text-center">
-                <h2 id="meeting-title" class="text-xl font-semibold">Meeting: <span id="current-channel"></span></h2>
-                <p id="participant-count" class="text-gray-300">1 participant</p>
-            </div>
-
-            <!-- Video Grid -->
-            <div id="video-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-20">
-                <!-- Videos will be added here -->
-            </div>
-
-            <!-- Controls -->
-            <div class="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-800 bg-opacity-95 rounded-2xl px-8 py-4 shadow-2xl">
-                <div class="flex items-center justify-center space-x-6">
-                    <button 
-                        id="mic-btn"
-                        onclick="toggleMic()" 
-                        class="controls-btn w-14 h-14 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center"
-                        title="Mute/Unmute"
-                    >
-                        <i class="fas fa-microphone"></i>
-                    </button>
-
-                    <button 
-                        id="camera-btn"
-                        onclick="toggleCamera()" 
-                        class="controls-btn w-14 h-14 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center"
-                        title="Start/Stop Video"
-                    >
-                        <i class="fas fa-video"></i>
-                    </button>
-
-                    <button 
-                        onclick="leaveCall()" 
-                        class="controls-btn w-14 h-14 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center"
-                        title="Leave Call"
-                    >
-                        <i class="fas fa-phone-slash"></i>
+                <div class="modal-body">
+                    <input type="text" class="form-control" id="usernameInput" 
+                           placeholder="Ваше имя" value="{{ username }}">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" onclick="setUsername()">
+                        Продолжить
                     </button>
                 </div>
-            </div>
-        </div>
-
-        <!-- Loading Overlay -->
-        <div id="loading-overlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
-            <div class="glass-effect rounded-2xl p-8 text-center">
-                <div class="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p id="loading-text" class="text-white">Connecting securely...</p>
             </div>
         </div>
     </div>
 
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Основная область с видео -->
+            <div class="col-lg-8 col-md-7">
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <h2><i class="fas fa-video me-2"></i>Video Conference Pro</h2>
+                    <div class="d-flex gap-2">
+                        <div class="btn-group">
+                            <button class="btn btn-outline-primary" onclick="copyChannel()">
+                                <i class="fas fa-link"></i> Копировать ссылку
+                            </button>
+                            <button class="btn btn-outline-info" onclick="showParticipants()">
+                                <i class="fas fa-users"></i> Участники
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mt-3">
+                    <div class="card-body">
+                        <h6 class="card-title">
+                            <i class="fas fa-hashtag"></i> Канал: 
+                            <span id="channelName">{{ channel_name }}</span>
+                        </h6>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <span class="badge bg-primary">
+                                <i class="fas fa-user"></i> 
+                                <span id="participantCount">0</span> участников
+                            </span>
+                            <span class="badge bg-success" id="connectionStatus">
+                                <i class="fas fa-wifi"></i> Подключение...
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="video-container" id="videoContainer">
+                    <div class="video-player" id="local-player">
+                        <div class="user-info">Вы: <span id="localUsername">Гость</span></div>
+                    </div>
+                </div>
+
+                <div class="controls">
+                    <button class="btn btn-control btn-primary" onclick="joinChannel()" id="joinBtn">
+                        <i class="fas fa-play"></i>
+                    </button>
+                    <button class="btn btn-control btn-danger" onclick="leaveChannel()" id="leaveBtn" style="display: none;">
+                        <i class="fas fa-stop"></i>
+                    </button>
+                    
+                    <button class="btn btn-control btn-warning" onclick="toggleVideo()" id="videoBtn">
+                        <i class="fas fa-video"></i>
+                    </button>
+                    <button class="btn btn-control btn-warning" onclick="toggleAudio()" id="audioBtn">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                    
+                    <button class="btn btn-control btn-info" onclick="toggleScreenShare()" id="screenShareBtn">
+                        <i class="fas fa-desktop"></i>
+                    </button>
+                    
+                    <button class="btn btn-control btn-secondary" onclick="joinWithoutMedia()">
+                        <i class="fas fa-user"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Боковая панель с чатом -->
+            <div class="col-lg-4 col-md-5">
+                <div class="sticky-top" style="top: 20px;">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <i class="fas fa-comments"></i> Чат
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="chat-container" id="chatMessages"></div>
+                            
+                            <div class="p-3 border-top">
+                                <div class="typing-indicator" id="typingIndicator" style="display: none;"></div>
+                                
+                                <div class="input-group mb-2">
+                                    <input type="text" class="form-control" id="messageInput" 
+                                           placeholder="Введите сообщение..." onkeypress="handleKeyPress(event)">
+                                    <button class="btn btn-primary" onclick="sendMessage()">
+                                        <i class="fas fa-paper-plane"></i>
+                                    </button>
+                                </div>
+                                
+                                <div class="reactions">
+                                    <span class="reaction-btn" onclick="sendReaction('👍')">👍</span>
+                                    <span class="reaction-btn" onclick="sendReaction('❤️')">❤️</span>
+                                    <span class="reaction-btn" onclick="sendReaction('🎉')">🎉</span>
+                                    <span class="reaction-btn" onclick="sendReaction('😂')">😂</span>
+                                    <span class="reaction-btn" onclick="sendReaction('😮')">😮</span>
+                                    <span class="reaction-btn" onclick="sendReaction('😢')">😢</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно участников -->
+    <div class="modal fade" id="participantsModal">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Участники конференции</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <ul class="list-group" id="participantsList"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <script src="https://cdn.agora.io/sdk/release/AgoraRTC_N-4.19.2.js"></script>
+    
     <script>
-        // Global variables
+        // Конфигурация Agora с вашими ключами
+        const appId = "c770c1ce64ed4cf78810a212b0634c0c";
+        const channelName = "{{ channel_name }}";
+        const userId = {{ user_id }};
+        let username = "{{ username }}";
+        
+        let client = null;
         let localTracks = {
+            videoTrack: null,
             audioTrack: null,
-            videoTrack: null
+            screenTrack: null
         };
         let remoteUsers = {};
-        let client = null;
-        let currentChannel = '';
+        let isJoined = false;
+        let isVideoEnabled = true;
+        let isAudioEnabled = true;
+        let isScreenSharing = false;
+        let socket = null;
+        let typingTimer = null;
 
-        // Show status message
-        function showStatus(message, type = 'info') {
-            const statusElement = document.getElementById('status');
-            statusElement.textContent = message;
-            statusElement.className = 'mt-4 text-sm';
+        // Инициализация при загрузке
+        window.onload = function() {
+            initSocketIO();
+            showUsernameModal();
+            updateLocalUsername();
+        };
+
+        function initSocketIO() {
+            socket = io();
             
-            const colors = {
-                error: 'text-red-300',
-                loading: 'text-yellow-300',
-                success: 'text-green-300',
-                info: 'text-blue-300'
-            };
-            
-            statusElement.classList.add(colors[type]);
-            statusElement.classList.remove('hidden');
+            socket.on('connect', () => {
+                console.log('Connected to WebSocket');
+                updateConnectionStatus('Подключено', 'success');
+            });
+
+            socket.on('disconnect', () => {
+                updateConnectionStatus('Отключено', 'danger');
+            });
+
+            socket.on('user_joined', (data) => {
+                addChatMessage('system', `${data.username} ${data.message}`);
+                updateParticipantCount();
+            });
+
+            socket.on('new_message', (data) => {
+                addChatMessage(data.userId === userId ? 'own' : 'other', 
+                              data.message, data.username);
+            });
+
+            socket.on('new_reaction', (data) => {
+                showReaction(data.reaction, data.username);
+            });
+
+            socket.on('user_activity_update', (data) => {
+                if (data.activity === 'typing') {
+                    showTypingIndicator(data.username);
+                } else if (data.activity === 'stopped_typing') {
+                    hideTypingIndicator();
+                }
+            });
         }
 
-        // Show loading overlay
-        function showLoading(message = 'Loading...') {
-            const overlay = document.getElementById('loading-overlay');
-            const text = document.getElementById('loading-text');
-            text.textContent = message;
-            overlay.classList.remove('hidden');
+        function showUsernameModal() {
+            const modal = new bootstrap.Modal(document.getElementById('usernameModal'));
+            modal.show();
         }
 
-        // Hide loading overlay
-        function hideLoading() {
-            document.getElementById('loading-overlay').classList.add('hidden');
-        }
-
-        // Create video element
-        function createVideoElement(uid, isLocal = false) {
-            const container = document.createElement('div');
-            container.className = 'video-container relative';
-            container.id = `player-${uid}`;
-            
-            const videoElement = document.createElement('div');
-            videoElement.className = 'w-full h-48 md:h-64';
-            
-            const info = document.createElement('div');
-            info.className = 'absolute bottom-2 left-2 bg-black bg-opacity-50 px-3 py-1 rounded text-sm';
-            info.innerHTML = `<i class="fas fa-user mr-2"></i>${isLocal ? 'You' : 'User ' + uid}`;
-            
-            if (isLocal) {
-                const badge = document.createElement('div');
-                badge.className = 'absolute top-2 right-2 bg-blue-500 px-2 py-1 rounded text-xs';
-                badge.textContent = 'You';
-                container.appendChild(badge);
+        function setUsername() {
+            const newUsername = document.getElementById('usernameInput').value.trim();
+            if (newUsername) {
+                username = newUsername;
+                sessionStorage.setItem('username', username);
+                
+                fetch('/set_username', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username: username })
+                });
+                
+                updateLocalUsername();
+                
+                const modal = bootstrap.Modal.getInstance(document.getElementById('usernameModal'));
+                modal.hide();
             }
-            
-            container.appendChild(videoElement);
-            container.appendChild(info);
-            document.getElementById('video-grid').appendChild(container);
-            
-            return videoElement;
         }
 
-        // Update participant count
-        function updateParticipantCount() {
-            const count = Object.keys(remoteUsers).length + 1;
-            document.getElementById('participant-count').textContent = 
-                `${count} participant${count !== 1 ? 's' : ''}`;
+        function updateLocalUsername() {
+            document.getElementById('localUsername').textContent = username;
         }
 
-        // Join conference call
-        async function joinCall() {
-            const channelName = document.getElementById('channel-name').value.trim();
-            const joinBtn = document.getElementById('join-btn');
-            
-            if (!channelName) {
-                showStatus('Please enter a channel name', 'error');
+        function updateConnectionStatus(text, type) {
+            const statusElement = document.getElementById('connectionStatus');
+            statusElement.className = `badge bg-${type}`;
+            statusElement.innerHTML = `<i class="fas fa-wifi"></i> ${text}`;
+        }
+
+        async function getToken() {
+            try {
+                const response = await fetch('/token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        channel: channelName,
+                        uid: userId
+                    })
+                });
+                
+                const data = await response.json();
+                return data.token;
+            } catch (error) {
+                console.error('Error getting token:', error);
+                throw error;
+            }
+        }
+
+        async function joinChannel() {
+            if (!appId) {
+                alert('Agora App ID не настроен!');
                 return;
             }
 
             try {
-                showLoading('Generating secure token...');
-                joinBtn.disabled = true;
+                client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
                 
-                // Generate token from backend
-                const response = await fetch('/api/generate-token', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        channelName: channelName,
-                        uid: Math.floor(Math.random() * 100000)
-                    })
-                });
-
-                const data = await response.json();
+                const token = await getToken();
+                await client.join(appId, channelName, token, userId);
+                isJoined = true;
                 
-                if (!response.ok) {
-                    throw new Error(data.error || 'Failed to generate token');
-                }
-
-                showLoading('Initializing secure connection...');
-                
-                // Initialize Agora client
-                client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
-
-                // Set up event listeners
-                setupAgoraEventListeners();
-
-                // Join channel with token
-                await client.join(data.appId, data.channel, data.token, data.uid);
-
-                showLoading('Starting your media...');
-                
-                // Create and publish local tracks
+                // Создание локальных треков
                 localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
                 localTracks.videoTrack = await AgoraRTC.createCameraVideoTrack();
                 
+                // Публикация треков
                 await client.publish([localTracks.audioTrack, localTracks.videoTrack]);
-
-                // Show local video
-                const localPlayer = createVideoElement('local', true);
-                localTracks.videoTrack.play(localPlayer);
-
-                // Update UI
-                currentChannel = channelName;
-                document.getElementById('current-channel').textContent = channelName;
-                document.getElementById('join-section').classList.add('hidden');
-                document.getElementById('conference-section').classList.remove('hidden');
                 
-                updateParticipantCount();
-                showStatus('Successfully joined secure meeting!', 'success');
+                // Отображение локального видео
+                localTracks.videoTrack.play("local-player");
+                
+                document.getElementById('joinBtn').style.display = 'none';
+                document.getElementById('leaveBtn').style.display = 'inline-block';
+                
+                // Присоединение к чату
+                socket.emit('join_chat', {
+                    channel: channelName,
+                    username: username
+                });
+                
+                updateConnectionStatus('В конференции', 'success');
                 
             } catch (error) {
-                console.error('Error joining call:', error);
-                showStatus('Failed to join: ' + error.message, 'error');
-            } finally {
-                hideLoading();
-                joinBtn.disabled = false;
+                console.error('Error joining channel:', error);
+                alert('Ошибка подключения: ' + error.message);
             }
         }
 
-        // Set up Agora event listeners
-        function setupAgoraEventListeners() {
+        async function joinWithoutMedia() {
+            if (!appId) {
+                alert('Agora App ID не настроен!');
+                return;
+            }
+
+            try {
+                client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+                
+                const token = await getToken();
+                await client.join(appId, channelName, token, userId);
+                isJoined = true;
+                
+                document.getElementById('joinBtn').style.display = 'none';
+                document.getElementById('leaveBtn').style.display = 'inline-block';
+                
+                // Присоединение к чату
+                socket.emit('join_chat', {
+                    channel: channelName,
+                    username: username
+                });
+                
+                updateConnectionStatus('В конференции (только просмотр)', 'info');
+                
+            } catch (error) {
+                console.error('Error joining without media:', error);
+                alert('Ошибка подключения: ' + error.message);
+            }
+        }
+
+        function leaveChannel() {
+            if (!isJoined) return;
+            
+            // Отключение локальных треков
+            if (localTracks.audioTrack) {
+                localTracks.audioTrack.close();
+                localTracks.audioTrack = null;
+            }
+            if (localTracks.videoTrack) {
+                localTracks.videoTrack.close();
+                localTracks.videoTrack = null;
+            }
+            if (localTracks.screenTrack) {
+                localTracks.screenTrack.close();
+                localTracks.screenTrack = null;
+            }
+            
+            // Покидание канала
+            client.leave();
+            isJoined = false;
+            isScreenSharing = false;
+            
+            // Очистка видео контейнера
+            document.getElementById('videoContainer').innerHTML = '';
+            
+            // Восстановление локального плеера
+            const localPlayer = document.createElement("div");
+            localPlayer.id = "local-player";
+            localPlayer.classList.add("video-player");
+            localPlayer.innerHTML = '<div class="user-info">Вы: <span id="localUsername">' + username + '</span></div>';
+            document.getElementById("videoContainer").appendChild(localPlayer);
+            
+            document.getElementById('joinBtn').style.display = 'inline-block';
+            document.getElementById('leaveBtn').style.display = 'none';
+            document.getElementById('screenShareBtn').classList.remove('btn-success');
+            
+            updateConnectionStatus('Отключено', 'secondary');
+        }
+
+        function toggleVideo() {
+            if (!localTracks.videoTrack) return;
+            
+            if (isVideoEnabled) {
+                localTracks.videoTrack.setEnabled(false);
+                document.getElementById('videoBtn').innerHTML = '<i class="fas fa-video-slash"></i>';
+                document.getElementById('videoBtn').classList.add('btn-danger');
+            } else {
+                localTracks.videoTrack.setEnabled(true);
+                document.getElementById('videoBtn').innerHTML = '<i class="fas fa-video"></i>';
+                document.getElementById('videoBtn').classList.remove('btn-danger');
+            }
+            isVideoEnabled = !isVideoEnabled;
+        }
+
+        function toggleAudio() {
+            if (!localTracks.audioTrack) return;
+            
+            if (isAudioEnabled) {
+                localTracks.audioTrack.setEnabled(false);
+                document.getElementById('audioBtn').innerHTML = '<i class="fas fa-microphone-slash"></i>';
+                document.getElementById('audioBtn').classList.add('btn-danger');
+            } else {
+                localTracks.audioTrack.setEnabled(true);
+                document.getElementById('audioBtn').innerHTML = '<i class="fas fa-microphone"></i>';
+                document.getElementById('audioBtn').classList.remove('btn-danger');
+            }
+            isAudioEnabled = !isAudioEnabled;
+        }
+
+        async function toggleScreenShare() {
+            if (!isJoined) return;
+            
+            try {
+                if (!isScreenSharing) {
+                    // Начать демонстрацию экрана
+                    localTracks.screenTrack = await AgoraRTC.createScreenVideoTrack({
+                        encoderConfig: "1080p_1"
+                    });
+                    
+                    await client.publish(localTracks.screenTrack);
+                    localTracks.screenTrack.play("local-player");
+                    isScreenSharing = true;
+                    
+                    document.getElementById('screenShareBtn').classList.add('btn-success');
+                    
+                } else {
+                    // Остановить демонстрацию экрана
+                    if (localTracks.screenTrack) {
+                        await client.unpublish(localTracks.screenTrack);
+                        localTracks.screenTrack.close();
+                        localTracks.screenTrack = null;
+                    }
+                    isScreenSharing = false;
+                    
+                    document.getElementById('screenShareBtn').classList.remove('btn-success');
+                    
+                    // Восстановить камеру если была включена
+                    if (isVideoEnabled && localTracks.videoTrack) {
+                        localTracks.videoTrack.play("local-player");
+                    }
+                }
+            } catch (error) {
+                console.error('Screen share error:', error);
+                alert('Ошибка демонстрации экрана: ' + error.message);
+            }
+        }
+
+        function copyChannel() {
+            const currentUrl = window.location.origin + window.location.pathname + '?channel=' + channelName;
+            navigator.clipboard.writeText(currentUrl).then(() => {
+                alert('Ссылка на конференцию скопирована в буфер обмена!');
+            });
+        }
+
+        function showParticipants() {
+            const modal = new bootstrap.Modal(document.getElementById('participantsModal'));
+            const participantsList = document.getElementById('participantsList');
+            
+            participantsList.innerHTML = `
+                <li class="list-group-item">
+                    <i class="fas fa-user me-2"></i>${username} (Вы)
+                </li>
+            `;
+            
+            // Добавление удаленных пользователей
+            Object.values(remoteUsers).forEach(user => {
+                participantsList.innerHTML += `
+                    <li class="list-group-item">
+                        <i class="fas fa-user me-2"></i>${user.username || `User ${user.uid}`}
+                    </li>
+                `;
+            });
+            
+            modal.show();
+        }
+
+        function updateParticipantCount() {
+            const count = Object.keys(remoteUsers).length + 1; // +1 для локального пользователя
+            document.getElementById('participantCount').textContent = count;
+        }
+
+        function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value.trim();
+            
+            if (message && socket) {
+                socket.emit('send_message', {
+                    message: message,
+                    channel: channelName
+                });
+                messageInput.value = '';
+                hideTypingIndicator();
+            }
+        }
+
+        function sendReaction(reaction) {
+            if (socket) {
+                socket.emit('send_reaction', {
+                    reaction: reaction,
+                    channel: channelName
+                });
+            }
+        }
+
+        function showReaction(reaction, username) {
+            const reactionElement = document.createElement('div');
+            reactionElement.className = 'reaction-popup';
+            reactionElement.innerHTML = `${username}: ${reaction}`;
+            reactionElement.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                font-size: 3em;
+                z-index: 2000;
+                animation: fadeOut 2s forwards;
+            `;
+            
+            document.body.appendChild(reactionElement);
+            
+            setTimeout(() => {
+                reactionElement.remove();
+            }, 2000);
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            } else {
+                // Индикация набора текста
+                if (socket) {
+                    socket.emit('user_activity', {
+                        activity: 'typing',
+                        channel: channelName
+                    });
+                    
+                    clearTimeout(typingTimer);
+                    typingTimer = setTimeout(() => {
+                        socket.emit('user_activity', {
+                            activity: 'stopped_typing',
+                            channel: channelName
+                        });
+                    }, 1000);
+                }
+            }
+        }
+
+        function showTypingIndicator(username) {
+            const indicator = document.getElementById('typingIndicator');
+            indicator.textContent = `${username} печатает...`;
+            indicator.style.display = 'block';
+        }
+
+        function hideTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            indicator.style.display = 'none';
+        }
+
+        function addChatMessage(type, message, username = 'Система') {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageElement = document.createElement('div');
+            messageElement.className = `message ${type}`;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            
+            if (type === 'system') {
+                messageElement.innerHTML = `<small>${message}</small>`;
+            } else {
+                messageElement.innerHTML = `
+                    <strong>${username}:</strong> ${message}
+                    <br><small class="text-muted">${timestamp}</small>
+                `;
+            }
+            
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Обработчики событий Agora
+        AgoraRTC.onAutoplayFailed = () => {
+            alert('Нажмите на страницу чтобы включить звук');
+        };
+
+        AgoraRTC.onMicrophoneChanged = async (changedDevice) => {
+            if (localTracks.audioTrack) {
+                await localTracks.audioTrack.setDevice(changedDevice.deviceId);
+            }
+        };
+
+        // Инициализация обработчиков событий
+        function initAgoraEvents() {
             if (!client) return;
 
             client.on("user-published", async (user, mediaType) => {
-                try {
-                    await client.subscribe(user, mediaType);
+                await client.subscribe(user, mediaType);
+                
+                if (mediaType === "video") {
+                    const player = document.createElement("div");
+                    player.id = `player-${user.uid}`;
+                    player.classList.add("video-player");
                     
-                    if (mediaType === "video") {
-                        const remotePlayer = createVideoElement(user.uid);
-                        user.videoTrack.play(remotePlayer);
-                    }
-                    if (mediaType === "audio") {
-                        user.audioTrack.play();
-                    }
-
-                    remoteUsers[user.uid] = user;
-                    updateParticipantCount();
+                    const userInfo = document.createElement("div");
+                    userInfo.className = "user-info";
+                    userInfo.textContent = `User ${user.uid}`;
+                    player.appendChild(userInfo);
                     
-                } catch (error) {
-                    console.error('Error handling user published:', error);
+                    document.getElementById("videoContainer").appendChild(player);
+                    
+                    user.videoTrack.play(`player-${user.uid}`);
+                    remoteUsers[user.uid] = { uid: user.uid, username: `User ${user.uid}` };
                 }
+                
+                if (mediaType === "audio") {
+                    user.audioTrack.play();
+                }
+                
+                updateParticipantCount();
             });
 
-            client.on("user-unpublished", (user) => {
-                const playerContainer = document.getElementById(`player-${user.uid}`);
-                if (playerContainer) {
-                    playerContainer.remove();
+            client.on("user-unpublished", (user, mediaType) => {
+                if (mediaType === "video") {
+                    const player = document.getElementById(`player-${user.uid}`);
+                    if (player) {
+                        player.remove();
+                    }
                 }
                 delete remoteUsers[user.uid];
+                updateParticipantCount();
+            });
+
+            client.on("user-joined", (user) => {
+                console.log("User joined:", user.uid);
+                remoteUsers[user.uid] = { uid: user.uid, username: `User ${user.uid}` };
                 updateParticipantCount();
             });
 
             client.on("user-left", (user) => {
-                const playerContainer = document.getElementById(`player-${user.uid}`);
-                if (playerContainer) {
-                    playerContainer.remove();
+                console.log("User left:", user.uid);
+                const player = document.getElementById(`player-${user.uid}`);
+                if (player) {
+                    player.remove();
                 }
                 delete remoteUsers[user.uid];
                 updateParticipantCount();
-                showStatus('User left the meeting', 'info');
+                addChatMessage('system', `User ${user.uid} покинул конференцию`);
             });
         }
 
-        // Leave conference call
-        async function leaveCall() {
-            try {
-                showLoading('Leaving meeting...');
-                
-                if (client) {
-                    await client.leave();
-                }
-                
-                // Close local tracks
-                if (localTracks.audioTrack) {
-                    localTracks.audioTrack.close();
-                }
-                if (localTracks.videoTrack) {
-                    localTracks.videoTrack.close();
-                }
-
-                // Reset state
-                localTracks = { audioTrack: null, videoTrack: null };
-                remoteUsers = {};
-                client = null;
-
-                // Reset UI
-                document.getElementById('video-grid').innerHTML = '';
-                document.getElementById('conference-section').classList.add('hidden');
-                document.getElementById('join-section').classList.remove('hidden');
-                
-                showStatus('Left the meeting securely', 'info');
-                
-            } catch (error) {
-                console.error('Error leaving call:', error);
-                showStatus('Error leaving meeting', 'error');
-            } finally {
-                hideLoading();
-            }
-        }
-
-        // Toggle microphone
-        async function toggleMic() {
-            if (!localTracks.audioTrack) return;
+        // Создание локального видео плеера при загрузке
+        window.onload = function() {
+            const localPlayer = document.createElement("div");
+            localPlayer.id = "local-player";
+            localPlayer.classList.add("video-player");
+            localPlayer.innerHTML = '<div class="user-info">Вы: <span id="localUsername">' + username + '</span></div>';
+            document.getElementById("videoContainer").appendChild(localPlayer);
             
-            try {
-                const enabled = !localTracks.audioTrack.enabled;
-                await localTracks.audioTrack.setEnabled(enabled);
-                
-                const btn = document.getElementById('mic-btn');
-                if (enabled) {
-                    btn.classList.remove('bg-red-500');
-                    btn.classList.add('bg-green-500');
-                    btn.innerHTML = '<i class="fas fa-microphone"></i>';
-                } else {
-                    btn.classList.remove('bg-green-500');
-                    btn.classList.add('bg-red-500');
-                    btn.innerHTML = '<i class="fas fa-microphone-slash"></i>';
-                }
-                
-            } catch (error) {
-                console.error('Error toggling microphone:', error);
-            }
-        }
-
-        // Toggle camera
-        async function toggleCamera() {
-            if (!localTracks.videoTrack) return;
-            
-            try {
-                const enabled = !localTracks.videoTrack.enabled;
-                await localTracks.videoTrack.setEnabled(enabled);
-                
-                const btn = document.getElementById('camera-btn');
-                if (enabled) {
-                    btn.classList.remove('bg-red-500');
-                    btn.classList.add('bg-green-500');
-                    btn.innerHTML = '<i class="fas fa-video"></i>';
-                } else {
-                    btn.classList.remove('bg-green-500');
-                    btn.classList.add('bg-red-500');
-                    btn.innerHTML = '<i class="fas fa-video-slash"></i>';
-                }
-                
-            } catch (error) {
-                console.error('Error toggling camera:', error);
-            }
-        }
-
-        // Check server health on load
-        async function checkServerHealth() {
-            try {
-                const response = await fetch('/api/health');
-                const data = await response.json();
-                
-                if (!data.agora_configured) {
-                    showStatus('Warning: Server not fully configured', 'error');
-                }
-            } catch (error) {
-                console.log('Server health check:', error.message);
-            }
-        }
-
-        // Initialize on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('Video conference app loaded');
-            checkServerHealth();
-        });
+            initSocketIO();
+            showUsernameModal();
+            updateLocalUsername();
+            initAgoraEvents();
+        };
     </script>
 </body>
 </html>
