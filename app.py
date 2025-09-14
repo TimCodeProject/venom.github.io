@@ -6,6 +6,10 @@ from dotenv import load_dotenv
 import random
 import string
 from datetime import datetime, timedelta
+import base64
+import hmac
+import hashlib
+import struct
 
 load_dotenv()
 
@@ -14,11 +18,15 @@ app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key')
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Agora конфигурация
-AGORA_APP_ID = os.getenv('AGORA_APP_ID')
-AGORA_APP_CERTIFICATE = os.getenv('AGORA_APP_CERTIFICATE')
+AGORA_APP_ID = os.getenv('AGORA_APP_ID', 'c770c1ce64ed4cf78810a212b0634c0c')
+AGORA_APP_CERTIFICATE = os.getenv('AGORA_APP_CERTIFICATE', '1b1220744ac644ce898114a2541ad45b')
 
-# Хранение данных сессий
-active_sessions = {}
+# Привилегии Agora
+class AgoraPrivileges:
+    kJoinChannel = 1
+    kPublishAudioStream = 2
+    kPublishVideoStream = 3
+    kPublishDataStream = 4
 
 def generate_channel_name():
     """Генерация уникального имени канала"""
@@ -27,27 +35,88 @@ def generate_channel_name():
 def generate_rtc_token(channel_name, uid, role=1):
     """Генерация токена для Agora RTC"""
     try:
-        from agora_access_token import AccessToken
-        
         if not AGORA_APP_ID or not AGORA_APP_CERTIFICATE:
             return None
             
         expiration_time = 3600  # 1 час
         current_time = datetime.utcnow()
-        privilege_expired_ts = (current_time + timedelta(seconds=expiration_time)).timestamp()
+        privilege_expired_ts = int((current_time + timedelta(seconds=expiration_time)).timestamp())
         
-        token = AccessToken(AGORA_APP_ID, AGORA_APP_CERTIFICATE, channel_name, uid)
-        token.add_privilege(AccessToken.Privileges.kJoinChannel, privilege_expired_ts)
+        # Создание токена
+        token = AgoraToken(AGORA_APP_ID, AGORA_APP_CERTIFICATE, channel_name, uid)
+        token.add_privilege(AgoraPrivileges.kJoinChannel, privilege_expired_ts)
         
         if role == 1:  # Publisher
-            token.add_privilege(AccessToken.Privileges.kPublishAudioStream, privilege_expired_ts)
-            token.add_privilege(AccessToken.Privileges.kPublishVideoStream, privilege_expired_ts)
-            token.add_privilege(AccessToken.Privileges.kPublishDataStream, privilege_expired_ts)
+            token.add_privilege(AgoraPrivileges.kPublishAudioStream, privilege_expired_ts)
+            token.add_privilege(AgoraPrivileges.kPublishVideoStream, privilege_expired_ts)
+            token.add_privilege(AgoraPrivileges.kPublishDataStream, privilege_expired_ts)
         
         return token.build()
-    except:
-        # Fallback для случаев когда agora_access_token не установлен
+    except Exception as e:
+        print(f"Token generation error: {e}")
         return "dummy_token_for_dev"
+
+class AgoraToken:
+    def __init__(self, appID, appCertificate, channelName, uid):
+        self.appID = appID
+        self.appCertificate = appCertificate
+        self.channelName = channelName
+        self.uid = str(uid)
+        self.privileges = {}
+        self.salt = int(time.time())
+        self.expiredTs = 0
+
+    def add_privilege(self, privilege, expireTimestamp):
+        self.privileges[privilege] = expireTimestamp
+        if expireTimestamp > self.expiredTs:
+            self.expiredTs = expireTimestamp
+
+    def build(self):
+        sign = self.generate_signature()
+        content = self._pack_content()
+        return self._pack(sign, content)
+
+    def generate_signature(self):
+        key = self._hmac_sha256(self.appCertificate.encode(), self._pack_uint32(self.salt))
+        message = self._pack_string(self.appID) + \
+                 self._pack_string(self.channelName) + \
+                 self._pack_string(self.uid) + \
+                 self._pack_uint32(self.salt) + \
+                 self._pack_uint32(self.expiredTs) + \
+                 self._pack_uint16(len(self.privileges))
+        
+        for key, value in self.privileges.items():
+            message += self._pack_uint16(key) + self._pack_uint32(value)
+        
+        return self._hmac_sha256(key, message)
+
+    def _pack_content(self):
+        return self._pack_string(self.appID) + \
+               self._pack_string(self.channelName) + \
+               self._pack_string(self.uid) + \
+               self._pack_uint32(self.salt) + \
+               self._pack_uint32(self.expiredTs) + \
+               self._pack_uint16(len(self.privileges)) + \
+               b''.join([self._pack_uint16(k) + self._pack_uint32(v) for k, v in self.privileges.items()])
+
+    def _pack(self, signature, content):
+        return base64.b64encode(
+            self._pack_uint16(len(signature)) + 
+            signature + 
+            content
+        ).decode('utf-8')
+
+    def _hmac_sha256(self, key, message):
+        return hmac.new(key, message, hashlib.sha256).digest()
+
+    def _pack_string(self, value):
+        return self._pack_uint16(len(value)) + value.encode('utf-8')
+
+    def _pack_uint16(self, value):
+        return struct.pack('<H', value)
+
+    def _pack_uint32(self, value):
+        return struct.pack('<I', value)
 
 @app.route('/')
 def index():
